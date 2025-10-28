@@ -15,6 +15,8 @@ def generate_sslcommerz_payment(request, order):
         "success_url": request.build_absolute_uri(f"/payment/success/{order.id}/"),
         "fail_url": request.build_absolute_uri(f"/payment/fail/{order.id}/"),
         "cancel_url": request.build_absolute_uri(f"/payment/cancel/{order.id}/"),
+        # IPN / server-to-server notification URL so SSLCommerz can POST validation details
+        "ipn_url": request.build_absolute_uri(f"/payment/notify/{order.id}/"),
         "cus_name": f"{order.first_name} {order.last_name}",
         "cus_email": order.email,
         "cus_add1": order.address,
@@ -27,8 +29,14 @@ def generate_sslcommerz_payment(request, order):
         "product_profile": "general",
     }
 
-    response = requests.post(settings.SSLCOMMERZ_PAYMENT_URL, data=post_data)
-    return json.loads(response.text)  # json --> Python obj
+    response = requests.post(
+        settings.SSLCOMMERZ_PAYMENT_URL, data=post_data, timeout=15
+    )
+    # return parsed JSON when possible; fall back to raw text
+    try:
+        return response.json()
+    except Exception:
+        return json.loads(response.text)
 
 
 def send_order_confirmation_email(order):
@@ -50,6 +58,7 @@ def verify_sslcommerz_payment(val_id, amount):
     try:
         store_id = settings.SSLCOMMERZ_STORE_ID
         store_pass = settings.SSLCOMMERZ_STORE_PASSWORD
+        # The configured validation URL may include extra query params; ensure we call the validator endpoint
         validation_url = settings.SSLCOMMERZ_VALIDATION_URL
 
         params = {
@@ -62,11 +71,25 @@ def verify_sslcommerz_payment(val_id, amount):
         response = requests.get(validation_url, params=params, timeout=10)
         data = response.json()
 
-        # Check valid status and amount match
+        # Check valid status and amount match (allow small float tolerance)
         status = data.get("status")
-        resp_amount = data.get("amount") or data.get("amount", 0)
+        resp_amount = data.get("amount")
+        try:
+            resp_amount_f = float(resp_amount)
+        except Exception:
+            resp_amount_f = 0.0
 
-        if status and status.upper() == "VALID" and float(resp_amount) == float(amount):
+        try:
+            expected_amount = float(amount)
+        except Exception:
+            expected_amount = 0.0
+
+        # allow a tiny tolerance for float comparisons (e.g., 0.01)
+        if (
+            status
+            and status.upper() == "VALID"
+            and abs(resp_amount_f - expected_amount) <= 0.01
+        ):
             return True
         return False
 
