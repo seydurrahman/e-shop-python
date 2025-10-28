@@ -5,7 +5,11 @@ from .forms import RegistrationForm, RatingForm, CheckoutForm
 from .models import Category, Product, Cart, CartItem, Rating, Order, OrderItem
 from django.db.models import Q, Min, Max, Avg
 from django.contrib.auth.decorators import login_required
-from .sslcommerz import generate_sslcommerz_payment, send_order_confirmation_email
+from .sslcommerz import (
+    generate_sslcommerz_payment,
+    send_order_confirmation_email,
+    verify_sslcommerz_payment,
+)
 from django.views.decorators.csrf import csrf_exempt
 # Create your views here.
 
@@ -266,7 +270,6 @@ def cart_remove(request, product_id):
 # Payment option --> Payment gateway te niye jabo
 
 # Product --> Cart Item --> Order Item
-@csrf_exempt # --> payment related kaj gula jeno secure thake setar jonne  
 @login_required
 def checkout(request):
     try:
@@ -313,7 +316,6 @@ def checkout(request):
 # 3. Payment Cancel
 
 # 0. Payment Process
-@csrf_exempt
 @login_required
 def payment_process(request):
     # session 
@@ -332,48 +334,61 @@ def payment_process(request):
         
 # 1. Payment Success
 @csrf_exempt
-@login_required
 def payment_success(request, order_id):
-    order = get_object_or_404(Order, id= order_id, user=request.user)
-    # order ta paid
-    # order er status --> processing
-    # product er stock komiye dibo
-    # transaction id
-    order.paid = True 
-    order.status = 'processing'
-    order.transaction_id = order.id 
-    order.save()
-    order_items = order.order_items.all()
-    for item in order_items:
-        product = item.product
-        product.stock -= item.quantity
-        
-        # 40 - 60 = -20
-        if product.stock < 0:
-            product.stock = 0
-        product.save()
-    
-    # send confirmation email
-    send_order_confirmation_email(order)
-    
-    messages.success(request, 'Payment successful')
-    return render(request, 'shop/payment_success.html', {'order' : order})
+    """
+    Handle payment success redirect/callback from SSLCommerz.
+    This endpoint may be hit by the gateway (server-to-server) or by the user's browser.
+    We do not require login here because gateway callbacks won't have the user's session.
+    Instead we verify the transaction using SSLCommerz validation API before marking the order paid.
+    """
+    order = get_object_or_404(Order, id=order_id)
+
+    # SSLCommerz typically returns a `val_id` which we can use to validate the transaction
+    val_id = request.GET.get("val_id") or request.POST.get("val_id")
+
+    verified = False
+    if val_id:
+        try:
+            verified = verify_sslcommerz_payment(val_id, order.get_total_cost())
+        except Exception as e:
+            # In production log the exception
+            print("Error verifying SSLCommerz payment:", e)
+
+    # Only mark paid when verification succeeds
+    if verified and not order.paid:
+        order.paid = True
+        order.status = "processing"
+        order.transaction_id = order.id
+        order.save()
+
+        # decrement stock
+        for item in order.order_items.all():
+            product = item.product
+            product.stock -= item.quantity
+            if product.stock < 0:
+                product.stock = 0
+            product.save()
+
+        # send confirmation email
+        send_order_confirmation_email(order)
+
+    # Render the success page for both browser redirects and gateway callbacks
+    # If user is authenticated and owns the order they'll see the same page
+    return render(request, "shop/payment_success.html", {"order": order})
 
 @csrf_exempt
-@login_required
 def payment_fail(request, order_id):
-    order = get_object_or_404(Order, id= order_id, user=request.user)
-    order.status = 'canceled'
+    order = get_object_or_404(Order, id=order_id)
+    order.status = "canceled"
     order.save()
-    return redirect('checkout')
+    return redirect("checkout")
 
 @csrf_exempt
-@login_required
 def payment_cancel(request, order_id):
-    order = get_object_or_404(Order, id= order_id, user=request.user)
-    order.status = 'canceled'
+    order = get_object_or_404(Order, id=order_id)
+    order.status = "canceled"
     order.save()
-    return redirect('cart_detail')
+    return redirect("cart_detail")
 
 
 # profile page
