@@ -11,9 +11,10 @@
         <p class="mb-4">A confirmation email has been sent to {{ order.email }}.</p>
         <p class="mb-5">Your transaction ID: <strong>{{ order.transaction_id }}</strong></p>
         <div class="d-grid gap-2 col-lg-6 mx-auto">
-            {% comment %} <a href="{% url 'profile' %}" class="btn btn-primary">View Your Orders</a> {% endcomment %}
-            <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">Continue Shopping</a>
+            <a href="{% url 'product_list' %}" class="btn btn-outline-primary">Continue Shopping</a>
+            <a href="{% url 'profile' %}" class="btn btn-outline-primary">View Your Orders</a>
         </div>
     </div>
 </div>
+
 {% endblock %}
