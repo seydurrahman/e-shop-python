@@ -1,0 +1,128 @@
+{% extends 'base.html' %} {% block title %}Orders Report | E-Shop{% endblock %}
+{% block extra_css %}
+<style>
+  .report-card {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  }
+  .report-header {
+    background: linear-gradient(90deg, #6a11cb, #2575fc);
+    color: #fff;
+    padding: 1rem 1.25rem;
+  }
+  .thumb {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  .badge-paid {
+    background: linear-gradient(90deg, #00b09b, #96c93d);
+    color: #fff;
+  }
+  .badge-pending {
+    background: linear-gradient(90deg, #ffb347, #ff4b2b);
+    color: #fff;
+  }
+  .badge-cod {
+    background: linear-gradient(90deg, #ff416c, #ff4b2b);
+    color: #fff;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="container py-4">
+  <div class="report-card">
+    <div
+      class="report-header d-flex justify-content-between align-items-center"
+    >
+      <div>
+        <h4 class="mb-0">📋 Orders Report</h4>
+        <small>One row per order item — export available as CSV</small>
+      </div>
+      <div class="d-flex align-items-center">
+        <form class="me-2" method="get">
+          <div class="input-group input-group-sm">
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="Search report..."
+              value="{{ request.GET.q|default:'' }}"
+            />
+            <button class="btn btn-primary" type="submit">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </form>
+        <a href="?format=csv" class="btn btn-light btn-sm">Download CSV</a>
+      </div>
+    </div>
+
+    <div class="p-3">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr class="small text-muted">
+              <th>Date</th>
+              <th>Customer Id</th>
+              <th>Name</th>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Amount</th>
+              <th>Image</th>
+              <th>Delivery Date</th>
+              <th>Payment</th>
+              <th>Received</th>
+              <th>Shipping</th>
+              <th>Delivery</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td class="text-nowrap">{{ r.date }}</td>
+              <td>{{ r.customer_id }}</td>
+              <td>{{ r.name }}</td>
+              <td>{{ r.product_name }}</td>
+              <td>{{ r.qty }}</td>
+              <td>৳{{ r.amount }}</td>
+              <td>
+                {% if r.image %}
+                <img src="{{ r.image }}" alt="thumb" class="thumb" />
+                {% else %} — {% endif %}
+              </td>
+              <td class="text-nowrap">{{ r.delivery_date }}</td>
+              <td>
+             {% if r.payment_yes == 'Yes' %}
+             <span class="badge badge-paid">Paid</span>
+             {% else %}
+             <span class="badge badge-pending">Unpaid</span>
+             {% endif %}
+             {% if r.payment_type == 'COD' %}
+             <span class="badge badge-cod ms-1">COD</span>
+             {% endif %}
+                </td>
+              <td>{{ r.received }}</td>
+              <td>{{ r.shipping }}</td>
+              <td>
+                {% if r.delivery == 'Delivered' %}
+                <span class="text-success">Delivered</span>
+                {% else %}
+                <span class="text-warning">Pending</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="12" class="text-center py-4">No orders found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

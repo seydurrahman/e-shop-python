@@ -33,8 +33,12 @@ urlpatterns = [
     path("payment/cancel/<int:order_id>/", views.payment_cancel, name="payment_cancel"),
     # profile
     path("profile/", views.profile, name="profile"),
-
     # admin dashboard
     path("dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("dashboard/sales/api/", views.sales_metrics_api, name="sales_metrics_api"),
+    path(
+        "dashboard/orders/report/",
+        views.admin_orders_report,
+        name="admin_orders_report",
+    ),
 ]

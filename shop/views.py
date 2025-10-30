@@ -12,6 +12,8 @@ from .sslcommerz import (
 )
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
+import csv
+from django.utils import timezone
 
 # Create your views here.
 
@@ -503,6 +505,154 @@ def sales_metrics_api(request):
 
     metrics = get_sales_metrics(days)
     return JsonResponse(metrics)
+
+
+@admin_required
+def admin_orders_report(request):
+    """Return an orders report for admins.
+
+    Supports HTML rendering and CSV export (use ?format=csv).
+    Columns: Date, Customer Id, Name, Product Name, Qty, Amount, Image, Delivery Date,
+    Payment Yes, Payment Type (COD/Online), Received/Not, Shipping (Free/Charge), Delivery Status
+    """
+    orders = (
+        Order.objects.select_related("user")
+        .prefetch_related("order_items__product")
+        .order_by("-created_at")
+    )
+
+    rows = []
+    for order in orders:
+        for item in order.order_items.all():
+            date = timezone.localtime(order.created_at).strftime("%Y-%m-%d %H:%M:%S")
+            customer_id = order.user.id if order.user else "-"
+            name = (
+                order.user.get_full_name() or order.user.username
+                if order.user
+                else "Guest"
+            )
+            product_name = item.product.name if item.product else ""
+            qty = item.quantity
+            # Use item.price if available else product price
+            amount = (
+                (item.price * item.quantity)
+                if getattr(item, "price", None) is not None
+                else (item.product.price * item.quantity)
+            )
+            image = (
+                request.build_absolute_uri(item.product.image.url)
+                if item.product and item.product.image
+                else ""
+            )
+            delivery_date = (
+                timezone.localtime(order.updated_at).strftime("%Y-%m-%d %H:%M:%S")
+                if order.status == "delivered"
+                else ""
+            )
+            payment_yes = "Yes" if order.paid else "No"
+            # Infer COD vs Online: if paid and transaction_id present -> Online else COD (best-effort)
+            payment_type = (
+                "Online"
+                if order.transaction_id
+                else ("COD" if not order.paid else "Online")
+            )
+            received = "Received" if order.status == "delivered" else "Not Received"
+            shipping = "Free"  # no shipping info available in model; defaulting to Free
+            delivery = "Delivered" if order.status == "delivered" else "Pending"
+
+            rows.append(
+                {
+                    "date": date,
+                    "customer_id": customer_id,
+                    "name": name,
+                    "product_name": product_name,
+                    "qty": qty,
+                    "amount": f"{amount}",
+                    "image": image,
+                    "delivery_date": delivery_date,
+                    "payment_yes": payment_yes,
+                    "payment_type": payment_type,
+                    "received": received,
+                    "shipping": shipping,
+                    "delivery": delivery,
+                }
+            )
+
+    # Support searching across all displayed fields (use ?q=...)
+    q = request.GET.get("q", "").strip()
+    if q:
+        ql = q.lower()
+
+        def row_matches(r):
+            for key in (
+                "date",
+                "customer_id",
+                "name",
+                "product_name",
+                "qty",
+                "amount",
+                "delivery_date",
+                "payment_yes",
+                "payment_type",
+                "received",
+                "shipping",
+                "delivery",
+            ):
+                val = r.get(key)
+                if val is None:
+                    continue
+                if ql in str(val).lower():
+                    return True
+            return False
+
+        rows = [r for r in rows if row_matches(r)]
+
+    # CSV export
+    if request.GET.get("format") == "csv":
+
+        filename = f"orders_report_{timezone.now().strftime('%Y%m%d')}.csv"
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        header = [
+            "Date",
+            "Customer Id",
+            "Name",
+            "Product Name",
+            "Qty",
+            "Amount",
+            "Image",
+            "Delivery Date",
+            "Payment Yes",
+            "Payment Type",
+            "Received/Not",
+            "Shipping",
+            "Delivery",
+        ]
+        writer.writerow(header)
+        for r in rows:
+            writer.writerow(
+                [
+                    r["date"],
+                    r["customer_id"],
+                    r["name"],
+                    r["product_name"],
+                    r["qty"],
+                    r["amount"],
+                    r["image"],
+                    r["delivery_date"],
+                    r["payment_yes"],
+                    r["payment_type"],
+                    r["received"],
+                    r["shipping"],
+                    r["delivery"],
+                ]
+            )
+        return response
+
+    # Render HTML table
+    return render(request, "shop/admin/orders_report.html", {"rows": rows})
 
 
 # profile page
