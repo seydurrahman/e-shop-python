@@ -28,6 +28,9 @@ SECRET_KEY = 'django-insecure-*0*zy86-gij)=(!9v)gj$!9uu&f3w37$q6e4%2v++j++f8&+q6
 DEBUG = True
 
 ALLOWED_HOSTS = ['e-shop-py-9e11.onrender.com', '127.0.0.1', 'localhost']
+CSRF_TRUSTED_ORIGINS = [
+    'https://e-shop-py-9e11.onrender.com',
+]
 
 # Application definition
 
