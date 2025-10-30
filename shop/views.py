@@ -467,6 +467,41 @@ def payment_cancel(request, order_id):
     return redirect("cart_detail")
 
 
+# Admin Dashboard
+from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from .utils import get_sales_metrics
+
+
+def admin_required(view_func):
+    """Allow access only to superusers (admins)."""
+    decorated_view_func = user_passes_test(
+        lambda u: u.is_active and u.is_superuser,
+        login_url="/admin/login/",  # redirect to admin login
+    )(view_func)
+    return decorated_view_func
+
+
+@admin_required
+def admin_dashboard(request):
+    """Render the admin dashboard with initial sales metrics."""
+    metrics = get_sales_metrics()
+    return render(request, "shop/admin/dashboard.html", {"metrics": metrics})
+
+
+@admin_required
+def sales_metrics_api(request):
+    """Return sales metrics as JSON (for charts or filters)."""
+    try:
+        days = int(request.GET.get("days", 30))
+    except ValueError:
+        days = 30
+
+    metrics = get_sales_metrics(days)
+    return JsonResponse(metrics)
+
+
 # profile page
 
 

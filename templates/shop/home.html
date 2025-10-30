@@ -151,8 +151,8 @@
     
     .product-price {
         font-weight: 700;
-        color: #212529;
-        font-size: 1.2rem;
+        color: #292125ff;
+        font-size: 1.2 rem;
     }
     
     .rating {
@@ -447,7 +447,13 @@
             <div class="card h-100 category-card">
                 <div class="card-body text-center py-4">
                     <div class="category-icon">
-                        <i class="fas fa-{% if forloop.counter == 1 %}tshirt{% elif forloop.counter == 2 %}laptop{% elif forloop.counter == 3 %}mobile-alt{% elif forloop.counter == 4 %}home{% elif forloop.counter == 5 %}shoe-prints{% else %}tag{% endif %}"></i>
+                        <i class="fas fa-{% if forloop.counter == 1 %}laptop
+                            {% elif forloop.counter == 2 %}desktop
+                            {% elif forloop.counter == 3 %}headphones
+                            {% elif forloop.counter == 4 %}fingerprint
+                            {% elif forloop.counter == 5 %}shoe-prints
+                            {% else %}tag{% endif %}">
+                        </i>
                     </div>
                     <h3 class="category-title">{{ category.name }}</h3>
                     <p class="card-text">{{ category.description|truncatechars:100 }}</p>

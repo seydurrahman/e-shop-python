@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Admin Dashboard | E-Shop{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.css">
+<style>
+  body {
+    background-color: #f7f9fc;
+  }
+
+  .dashboard-title {
+    font-weight: 700;
+    color: #333;
+  }
+
+  .stats-card {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: 0.3s;
+  }
+
+  .stats-card:hover {
+    transform: translateY(-3px);
+  }
+
+  .stats-icon {
+    font-size: 32px;
+    opacity: 0.8;
+  }
+
+  .stats-value {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .stats-label {
+    font-size: 14px;
+    opacity: 0.85;
+  }
+
+  .chart-container {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .chart-container h5 {
+    font-weight: 600;
+    margin-bottom: 15px;
+  }
+
+  .time-filter {
+    text-align: right;
+    margin-bottom: 20px;
+  }
+
+  .time-filter button.active {
+    background: #2575fc;
+    color: white;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.8s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 fade-in">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="dashboard-title">📊 E-Shop Admin Dashboard</h2>
+    <div class="time-filter">
+      <button class="btn btn-outline-primary active" data-days="7">7 Days</button>
+      <button class="btn btn-outline-primary" data-days="30">30 Days</button>
+      <button class="btn btn-outline-primary" data-days="90">90 Days</button>
+    </div>
+  </div>
+
+  <!-- Overview Cards -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="stats-card">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stats-value">৳{{ metrics.total_metrics.total_revenue|floatformat:2 }}</div>
+            <div class="stats-label">Total Revenue</div>
+          </div>
+          <i class="bi bi-cash-coin stats-icon"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="stats-card" style="background: linear-gradient(135deg, #ff416c, #ff4b2b);">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stats-value">{{ metrics.total_metrics.total_orders }}</div>
+            <div class="stats-label">Total Orders</div>
+          </div>
+          <i class="bi bi-cart-check stats-icon"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="stats-card" style="background: linear-gradient(135deg, #00b09b, #96c93d);">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stats-value">৳{{ metrics.total_metrics.avg_order_value|floatformat:2 }}</div>
+            <div class="stats-label">Avg Order Value</div>
+          </div>
+          <i class="bi bi-graph-up-arrow stats-icon"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="chart-container">
+        <h5>📅 Daily Sales Trend</h5>
+        <canvas id="dailySalesChart"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="chart-container">
+        <h5>📆 Monthly Sales Summary</h5>
+        <canvas id="monthlySalesChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Insights -->
+  <div class="row g-4 mt-4">
+    <div class="col-md-6">
+      <div class="chart-container">
+        <h5>🧾 Order Distribution</h5>
+        <canvas id="orderDistributionChart"></canvas>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="chart-container">
+        <h5>🏆 Top-Selling Products</h5>
+        <ul id="topProducts" class="list-group list-group-flush small"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let dailyChart, monthlyChart, orderPie;
+
+function initializeCharts(data) {
+  // ---------------------
+  // Daily Sales Line Chart
+  // ---------------------
+  const dailyCtx = document.getElementById("dailySalesChart").getContext("2d");
+  dailyChart = new Chart(dailyCtx, {
+    type: "line",
+    data: {
+      labels: data.daily_sales.map(item => new Date(item.date).toLocaleDateString()),
+      datasets: [{
+        label: "Daily Sales",
+        data: data.daily_sales.map(item => item.total_sales),
+        borderColor: "#6a11cb",
+        backgroundColor: "rgba(106, 17, 203, 0.15)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+
+  // inside initializeCharts(data)
+orderPie = new Chart(orderCtx, {
+  type: "doughnut",
+  data: {
+    labels: ["Paid Orders", "Pending Orders", "Cancelled Orders"],
+    datasets: [{
+      data: [data.order_distribution.paid, data.order_distribution.pending, data.order_distribution.canceled],
+      backgroundColor: ["#6a11cb", "#ff4b2b", "#00b09b"]
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+});
+
+  // ---------------------
+  // Monthly Sales Bar Chart
+  // ---------------------
+  const monthlyCtx = document.getElementById("monthlySalesChart").getContext("2d");
+  monthlyChart = new Chart(monthlyCtx, {
+    type: "bar",
+    data: {
+      labels: data.monthly_sales.map(item => new Date(item.month).toLocaleDateString('default', { month: 'short', year: 'numeric' })),
+      datasets: [{
+        label: "Monthly Sales",
+        data: data.monthly_sales.map(item => item.total_sales),
+        backgroundColor: "rgba(37,117,252,0.8)",
+        borderRadius: 8
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  // ---------------------
+  // Order Distribution Pie Chart
+  // ---------------------
+  const orderCtx = document.getElementById("orderDistributionChart").getContext("2d");
+  orderPie = new Chart(orderCtx, {
+    type: "doughnut",
+    data: {
+      labels: ["Paid Orders", "Pending Orders", "Cancelled Orders"],
+      datasets: [{
+        data: [
+          data.total_metrics.total_orders,
+          5, // replace with real pending if available
+          2  // replace with real cancelled if available
+        ],
+        backgroundColor: ["#6a11cb", "#ff4b2b", "#00b09b"]
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+  });
+
+  // ---------------------
+  // Top Products
+  // ---------------------
+  const topProductsEl = document.getElementById("topProducts");
+  if (data.top_products && data.top_products.length > 0) {
+    topProductsEl.innerHTML = data.top_products.map(
+      p => `<li class="list-group-item">${p.product} - ${p.quantity} Orders</li>`
+    ).join('');
+  } else {
+    topProductsEl.innerHTML = '<li class="list-group-item">No data available</li>';
+  }
+}
+
+// Initialize charts with initial metrics from Django context
+initializeCharts({{ metrics|safe }});
+
+// ---------------------
+// Time Filter Buttons
+// ---------------------
+document.querySelectorAll(".time-filter button").forEach(btn => {
+  btn.addEventListener("click", async function() {
+    document.querySelectorAll(".time-filter button").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+
+    const response = await fetch(`/admin/sales/api/?days=${this.dataset.days}`);
+    const data = await response.json();
+
+    // Destroy old charts before re-rendering
+    dailyChart.destroy();
+    monthlyChart.destroy();
+    orderPie.destroy();
+
+    initializeCharts(data);
+  });
+});
+</script>
+{% endblock %}
