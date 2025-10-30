@@ -26,6 +26,9 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, "Logged In Successful!")
+            # If the user is a superuser, take them to the admin dashboard
+            if user.is_superuser:
+                return redirect("admin_dashboard")
             return redirect("profile")
         else:
             messages.error(request, "Invalid username or password")
