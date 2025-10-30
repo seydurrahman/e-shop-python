@@ -52,6 +52,9 @@
         background-color: white;
         color: #6a11cb;
         border: none;
+        position: relative;
+        z-index: 10;
+
     }
     
     .hero-btn:hover {
@@ -308,10 +311,28 @@
                 </a>
             </div>
             <div class="col-lg-5 d-none d-lg-block">
-                <div class="text-center">
-                    <img src="{% static 'welcome.jpg' %}" alt="Welcome to E-Shop" class="img-fluid rounded-3">
-                </div>
+    <div id="welcomeCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-inner rounded-3">
+            <div class="carousel-item active">
+                <img src="{% static 'images/1.png' %}" class="d-block w-100 img-fluid" alt="Welcome to E-Shop 1">
             </div>
+            <div class="carousel-item">
+                <img src="{% static 'images/2.png' %}" class="d-block w-100 img-fluid" alt="Welcome to E-Shop 2">
+            </div>
+            <div class="carousel-item">
+                <img src="{% static 'images/3.png' %}" class="d-block w-100 img-fluid" alt="Welcome to E-Shop 3">
+            </div>
+        </div>
+        <!-- Carousel controls -->
+        <button class="carousel-control-prev" type="button" data-bs-target="#welcomeCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#welcomeCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        </button>
+    </div>
+</div>
+
         </div>
     </div>
 </div>
